@@ -135,9 +135,11 @@ parse_and_download() {
           if [[ -n "$item" ]]; then
             # Add to global_nodes if not already present
             local found=false
-            for existing_node in "${global_nodes[@]}"; do
-              [[ "$existing_node" == "$item" ]] && found=true && break
-            done
+            if [[ ${#global_nodes[@]} -gt 0 ]]; then
+              for existing_node in "${global_nodes[@]}"; do
+                [[ "$existing_node" == "$item" ]] && found=true && break
+              done
+            fi
             [[ "$found" == false ]] && global_nodes+=("$item")
           fi
         done
@@ -151,9 +153,11 @@ parse_and_download() {
           if [[ -n "$item" ]]; then
             # Add to global_pip_packages if not already present
             local found=false
-            for existing_pkg in "${global_pip_packages[@]}"; do
-              [[ "$existing_pkg" == "$item" ]] && found=true && break
-            done
+            if [[ ${#global_pip_packages[@]} -gt 0 ]]; then
+              for existing_pkg in "${global_pip_packages[@]}"; do
+                [[ "$existing_pkg" == "$item" ]] && found=true && break
+              done
+            fi
             [[ "$found" == false ]] && global_pip_packages+=("$item")
           fi
         done
