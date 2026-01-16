@@ -26,6 +26,7 @@ global_pip_packages=()
 download() {
   local url="$1"
   local dest="$2"
+  local progress="${3:-}"  # Optional progress indicator like "[1/5]"
 
   local dir
   dir="$(dirname "$dest")"
@@ -34,7 +35,11 @@ download() {
   # Check if file already exists and is not empty
   if [[ -f "$dest" && -s "$dest" ]]; then
     echo "============================================================"
-    echo "[SKIPPING] File already exists"
+    if [[ -n "$progress" ]]; then
+      echo "$progress [SKIPPING] File already exists"
+    else
+      echo "[SKIPPING] File already exists"
+    fi
     echo "FILE: $dest"
     echo "SIZE: $(ls -lh "$dest" | awk '{print $5}')"
     echo "------------------------------------------------------------"
@@ -42,7 +47,11 @@ download() {
   fi
 
   echo "============================================================"
-  echo "[DOWNLOADING]"
+  if [[ -n "$progress" ]]; then
+    echo "$progress [DOWNLOADING]"
+  else
+    echo "[DOWNLOADING]"
+  fi
   echo "URL : $url"
   echo "DEST: $dest"
   echo "------------------------------------------------------------"
@@ -68,10 +77,10 @@ download() {
     exit 1
   fi
 
-  echo "[OK] Downloaded: $(ls -lh "$dest")"
+  echo "[OK] Downloaded: $(ls -lh "$dest" | awk '{print $5}')"
 }
 
-# Parse model.txt and download files
+# Parse model.yaml and download files
 parse_and_download() {
   if [[ ! -f "$MODEL_FILE" ]]; then
     echo "[ERROR] Model file not found: $MODEL_FILE" >&2
@@ -80,16 +89,103 @@ parse_and_download() {
 
   echo "[INFO] Parsing model file: $MODEL_FILE"
   
+  # First pass: count total items
+  echo "[INFO] Scanning configuration to count total items..."
+  local total_models=0
+  local temp_in_workflow=false
+  
+  while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
+    [[ "$line" =~ ^[[:space:]]*#.*: ]] && continue
+    [[ "$line" =~ ^[[:space:]]*# ]] && continue
+    
+    # Check for global_nodes
+    if [[ "$line" =~ ^global_nodes:[[:space:]]*\[(.*)\ ]]; then
+      local items="${BASH_REMATCH[1]}"
+      items="${items//\'/}"; items="${items//\"/}"
+      IFS=',' read -ra ITEMS <<< "$items"
+      for item in "${ITEMS[@]}"; do
+        item="$(echo "$item" | xargs)"
+        if [[ -n "$item" ]]; then
+          global_nodes+=("$item")
+        fi
+      done
+    # Check for global_pip_packages
+    elif [[ "$line" =~ ^global_pip_packages:[[:space:]]*\[(.*)\ ]]; then
+      local items="${BASH_REMATCH[1]}"
+      items="${items//\'/}"; items="${items//\"/}"
+      IFS=',' read -ra ITEMS <<< "$items"
+      for item in "${ITEMS[@]}"; do
+        item="$(echo "$item" | xargs)"
+        if [[ -n "$item" ]]; then
+          global_pip_packages+=("$item")
+        fi
+      done
+    # Check for workflow sections
+    elif [[ "$line" =~ ^([a-zA-Z0-9_-]+):$ ]]; then
+      temp_in_workflow=true
+    elif [[ "$temp_in_workflow" == true ]]; then
+      # Check for nodes within workflow
+      if [[ "$line" =~ ^[[:space:]]+nodes:[[:space:]]*\[(.*)\ ]]; then
+        local items="${BASH_REMATCH[1]}"
+        items="${items//\'/}"; items="${items//\"/}"
+        IFS=',' read -ra ITEMS <<< "$items"
+        for item in "${ITEMS[@]}"; do
+          item="$(echo "$item" | xargs)"
+          if [[ -n "$item" ]]; then
+            # Add to global_nodes if not already present
+            local found=false
+            for existing_node in "${global_nodes[@]}"; do
+              [[ "$existing_node" == "$item" ]] && found=true && break
+            done
+            [[ "$found" == false ]] && global_nodes+=("$item")
+          fi
+        done
+      # Check for pip_packages within workflow
+      elif [[ "$line" =~ ^[[:space:]]+pip_packages:[[:space:]]*\[(.*)\ ]]; then
+        local items="${BASH_REMATCH[1]}"
+        items="${items//\'/}"; items="${items//\"/}"
+        IFS=',' read -ra ITEMS <<< "$items"
+        for item in "${ITEMS[@]}"; do
+          item="$(echo "$item" | xargs)"
+          if [[ -n "$item" ]]; then
+            # Add to global_pip_packages if not already present
+            local found=false
+            for existing_pkg in "${global_pip_packages[@]}"; do
+              [[ "$existing_pkg" == "$item" ]] && found=true && break
+            done
+            [[ "$found" == false ]] && global_pip_packages+=("$item")
+          fi
+        done
+      # Count model URLs
+      elif [[ "$line" =~ ^[[:space:]]+([a-z_]+):[[:space:]]*\[(.*)\][[:space:]]*$ ]]; then
+        local urls="${BASH_REMATCH[2]}"
+        urls="${urls//\'/}"; urls="${urls//\"/}"
+        IFS=',' read -ra URL_ARRAY <<< "$urls"
+        for url in "${URL_ARRAY[@]}"; do
+          url="$(echo "$url" | xargs)"
+          [[ -n "$url" ]] && ((total_models++))
+        done
+      elif [[ ! "$line" =~ ^[[:space:]] ]]; then
+        temp_in_workflow=false
+      fi
+    fi
+  done < "$MODEL_FILE"
+  
+  echo "[INFO] Found: $total_models model(s), ${#global_nodes[@]} node(s), ${#global_pip_packages[@]} package(s)"
+  echo ""
+  
+  # Second pass: actual processing with progress counter
+  local current_model=0
   local current_workflow=""
   local in_workflow=false
-  # Array to track enabled workflows
   enabled_workflows=()
   
   while IFS= read -r line; do
     # Skip empty lines
     [[ -z "$line" ]] && continue
     
-    # Check for commented workflow section (starts with # followed by workflow name:)
+    # Check for commented workflow section
     if [[ "$line" =~ ^#[[:space:]]*([a-zA-Z0-9_-]+):$ ]]; then
       echo ""
       echo "============================================================"
@@ -101,6 +197,9 @@ parse_and_download() {
     
     # Skip other comment lines
     [[ "$line" =~ ^[[:space:]]*# ]] && continue
+    
+    # Skip global settings
+    [[ "$line" =~ ^global_ ]] && continue
     
     # Check for workflow section (ends with :)
     if [[ "$line" =~ ^([a-zA-Z0-9_-]+):$ ]]; then
@@ -116,6 +215,11 @@ parse_and_download() {
     
     # Process category lines within a workflow
     if [[ "$in_workflow" == true ]]; then
+      # Skip nodes and pip_packages (already processed)
+      if [[ "$line" =~ ^[[:space:]]+nodes: ]] || [[ "$line" =~ ^[[:space:]]+pip_packages: ]]; then
+        continue
+      fi
+      
       # Extract category (checkpoints, text_encoders, etc.)
       if [[ "$line" =~ ^[[:space:]]+([a-z_]+):[[:space:]]*\[(.*)\][[:space:]]*$ ]]; then
         local current_category="${BASH_REMATCH[1]}"
@@ -139,7 +243,8 @@ parse_and_download() {
             filename="${url##*/}"
             dest_path="$BASE_DIR/$current_category/$filename"
             
-            download "$url" "$dest_path"
+            ((current_model++))
+            download "$url" "$dest_path" "[${current_model}/${total_models}]"
           fi
         done
       elif [[ ! "$line" =~ ^[[:space:]] ]]; then
@@ -167,23 +272,47 @@ move_workflows() {
     return
   fi
   
+  # Count total workflows
+  local total_workflows=0
+  for wf in "$workflow_src_dir"/*.json; do
+    [[ -e "$wf" ]] && ((total_workflows++))
+  done
+  
+  echo "[INFO] Found $total_workflows workflow file(s)"
+  
   local count=0
   local skipped=0
+  local current=0
   
   for workflow_file in "$workflow_src_dir"/*.json; do
     [[ -e "$workflow_file" ]] || continue
+    ((current++))
     
     local filename=$(basename "$workflow_file")
     local workflow_name="${filename%.json}"
     local dest="$workflow_dest_dir/$filename"
     
-    # Check if this workflow is enabled in model.txt
+    # Check if this workflow is enabled in model.yaml
     local is_enabled=false
     for enabled_wf in "${enabled_workflows[@]}"; do
       if [[ "$enabled_wf" == "$workflow_name" ]]; then
         is_enabled=true
         break
- 
+      fi
+    done
+    
+    if [[ "$is_enabled" == true ]]; then
+      echo "[${current}/${total_workflows}] [COPYING] $filename -> $dest"
+      cp "$workflow_file" "$dest"
+      ((count++))
+    else
+      echo "[${current}/${total_workflows}] [SKIPPING] $filename (commented or not in model.yaml)"
+      ((skipped++))
+    fi
+  done
+  
+  echo "[OK] Installed $count workflow files, skipped $skipped"
+}
 
 # -------- Install ComfyUI nodes --------
 install_nodes() {
@@ -197,51 +326,34 @@ install_nodes() {
 
   echo ""
   echo "============================================================"
-  echo "Installing ComfyUI Custom Nodes"
+  echo "Installing ComfyUI Custom Nodes (Total: ${#global_nodes[@]})"
   echo "============================================================"
 
   local custom_nodes_dir="$COMFYUI_DIR/custom_nodes"
   mkdir -p "$custom_nodes_dir"
 
+  local current_node=0
   for repo in "${global_nodes[@]}"; do
-# Check for authentication tokens
-if [[ -n "$HF_TOKEN" ]]; then
-  echo "[INFO] HuggingFace token detected"
-fi
-if [[ -n "$CIVITAI_TOKEN" ]]; then
-  echo "[INFO] Civitai token detected"
-fi
-
-# Install PIP packages first
-parse_and_download
-install_pip_packages
-
-# Install custom nodes
-install_nodes
-
-# Download all models (already called in parse_and_download)
-# Models are downloaded during parse_and_download
-
-# Install workflow files
-move_workflows
-
-echo ""
-echo "============================================================"
-echo "[ALL DONE] Setup completed successfully!"
-echo "============================================================"
-echo "Models location: $BASE_DIR"
-echo "Workflows location: /workspace/ComfyUI/user/default/workflows"
-if [[ ${#global_nodes[@]} -gt 0 ]]; then
-  echo "Installed ${#global_nodes[@]} custom node(s)"
-fi
-if [[ ${#global_pip_packages[@]} -gt 0 ]]; then
-  echo "Installed ${#global_pip_packages[@]} PIP package(s)"
-fi
+    ((current_node++))
+    
+    # Extract repo name from URL
+    local dir_name="${repo##*/}"
+    dir_name="${dir_name%.git}"
+    local node_path="$custom_nodes_dir/$dir_name"
+    local requirements="$node_path/requirements.txt"
+    
+    if [[ -d "$node_path" ]]; then
+      echo ""
+      echo "[${current_node}/${#global_nodes[@]}] [UPDATE] Updating existing node: $dir_name"
+      cd "$node_path" && git pull || echo "[WARNING] Failed to update $dir_name"
+      
+      if [[ -f "$requirements" ]]; then
+        echo "[INSTALL] Installing requirements for $dir_name"
         pip install --no-cache-dir -r "$requirements" || echo "[WARNING] Failed to install requirements for $dir_name"
       fi
     else
       echo ""
-      echo "[CLONE] Cloning node: $repo"
+      echo "[${current_node}/${#global_nodes[@]}] [CLONE] Cloning node: $repo"
       git clone "$repo" "$node_path" --recursive || {
         echo "[ERROR] Failed to clone $repo" >&2
         continue
@@ -269,29 +381,17 @@ install_pip_packages() {
 
   echo ""
   echo "============================================================"
-  echo "Installing PIP Packages"
+  echo "Installing PIP Packages (Total: ${#global_pip_packages[@]})"
   echo "============================================================"
 
+  local current_package=0
   for package in "${global_pip_packages[@]}"; do
-    echo "[INSTALL] $package"
+    ((current_package++))
+    echo "[${current_package}/${#global_pip_packages[@]}] [INSTALL] $package"
     pip install --no-cache-dir "$package" || echo "[WARNING] Failed to install $package"
   done
 
   echo "[OK] PIP package installation complete"
-}     fi
-    done
-    
-    if [[ "$is_enabled" == true ]]; then
-      echo "[COPYING] $filename -> $dest"
-      cp "$workflow_file" "$dest"
-      ((count++))
-    else
-      echo "[SKIPPING] $filename (commented or not in model.txt)"
-      ((skipped++))
-    fi
-  done
-  
-  echo "[OK] Installed $count workflow files, skipped $skipped"
 }
 
 # -------- Main execution --------
@@ -299,125 +399,35 @@ echo "============================================================"
 echo "ComfyUI Model & Workflow Setup"
 echo "============================================================"
 
-# Download all models from model.txt
-parse_and_download
-
-# Install workflow files
-move_workflows
-
-echo ""
-echo "============================================================"
-echo "[ALL DONE] Setup completed successfully!"
-echo "============================================================"
-echo "Models location: $BASE_DIR"
-echo "Workflows location: /workspace/ComfyUI/user/default/workflows"
-    
-    local filename=$(basename "$workflow_file")
-    local dest="$workflow_dest_dir/$filename"
-    
-    echo "[COPYING] $filename -> $dest"
-    cp "$workflow_file" "$dest"
-    ((count++))
-  done
-  
-  echo "[OK] Installed $count workflow files"
-}
-
-# -------- Main execution --------
-echo "============================================================"
-echo "ComfyUI Model & Workflow Setup"
-echo "============================================================"
-
-# Download all models from model.txt
-parse_and_download
-
-# Install workflow files
-move_workflows
-
-echo ""
-echo "============================================================"
-echo "[ALL DONE] Setup completed successfully!"
-echo "============================================================"
-echo "Models location: $BASE_DIR"
-echo "Workflows location: /workspace/ComfyUI/user/default/workflows"
-  local in_workflow=false
-  
-  while IFS= read -r line; do
-    # Skip empty lines and comments
-    [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
-    
-    # Check if we're in the correct workflow section
-    if [[ "$line" =~ ^${WORKFLOW_NAME}: ]]; then
-      in_workflow=true
-      continue
-    fi
-    
-    # If we hit another workflow name, stop
-    if [[ "$line" =~ ^[a-zA-Z_-]+: ]] && [[ ! "$line" =~ ^[[:space:]] ]]; then
-      in_workflow=false
-    fi
-    
-    # Only process lines within our workflow
-    if [[ "$in_workflow" == true ]]; then
-      # Extract category (checkpoints, text_encoders, etc.)
-      if [[ "$line" =~ ^[[:space:]]+([a-z_]+):[[:space:]]*\[(.*)\] ]]; then
-        current_category="${BASH_REMATCH[1]}"
-        local urls="${BASH_REMATCH[2]}"
-        
-        # Remove quotes and split by comma
-        urls="${urls//\'/}"
-        urls="${urls//\"/}"
-        
-        IFS=',' read -ra URL_ARRAY <<< "$urls"
-        
-        for url in "${URL_ARRAY[@]}"; do
-          # Trim whitespace
-          url="$(echo "$url" | xargs)"
-          
-          if [[ -n "$url" ]]; then
-            # Extract filename from URL
-            filename="${url##*/}"
-            dest_path="$BASE_DIR/$current_category/$filename"
-            
-            download "$url" "$dest_path"
-          fi
-        done
-      fi
-    fi
-  done < "$MODEL_FILE"
-}
-
-# -------- downloads --------
-echo "============================================================"
-echo "Starting model downloads from $MODEL_FILE"
-echo "============================================================"
-
-parse_and_download
-
-# -------- Move workflow file --------
-WORKFLOW_SRC="$SCRIPT_DIR/workflow/${WORKFLOW_NAME}.json"
-WORKFLOW_DEST="/workspace/ComfyUI/user/default/workflows/${WORKFLOW_NAME}.json"
-
-if [[ -f "$WORKFLOW_SRC" ]]; then
-  echo "============================================================"
-  echo "[MOVING WORKFLOW]"
-  echo "FROM: $WORKFLOW_SRC"
-  echo "TO  : $WORKFLOW_DEST"
-  echo "------------------------------------------------------------"
-  
-  mkdir -p "$(dirname "$WORKFLOW_DEST")"
-  cp "$WORKFLOW_SRC" "$WORKFLOW_DEST"
-  
-  echo "[OK] Workflow moved successfully."
-else
-  echo "[WARNING] Workflow file not found: $WORKFLOW_SRC" >&2
+# Check for authentication tokens
+if [[ -n "$HF_TOKEN" ]]; then
+  echo "[INFO] HuggingFace token detected"
+fi
+if [[ -n "$CIVITAI_TOKEN" ]]; then
+  echo "[INFO] Civitai token detected"
 fi
 
+# Parse and download models (also extracts nodes and packages)
+parse_and_download
+
+# Install PIP packages
+install_pip_packages
+
+# Install custom nodes
+install_nodes
+
+# Install workflow files
+move_workflows
+
+echo ""
 echo "============================================================"
-echo "[ALL DONE] LTX-2 models downloaded successfully."
-echo "Check folders:"
-echo "  - $BASE_DIR/checkpoints"
-echo "  - $BASE_DIR/text_encoders"
-echo "  - $BASE_DIR/latent_upscale_models"
-echo "  - $BASE_DIR/loras"
-echo "  - $WORKFLOW_DEST"
+echo "[ALL DONE] Setup completed successfully!"
+echo "============================================================"
+echo "Models location: $BASE_DIR"
+echo "Workflows location: /workspace/ComfyUI/user/default/workflows"
+if [[ ${#global_nodes[@]} -gt 0 ]]; then
+  echo "Installed ${#global_nodes[@]} custom node(s)"
+fi
+if [[ ${#global_pip_packages[@]} -gt 0 ]]; then
+  echo "Installed ${#global_pip_packages[@]} PIP package(s)"
+fi
