@@ -100,7 +100,7 @@ parse_and_download() {
     [[ "$line" =~ ^[[:space:]]*# ]] && continue
     
     # Check for global_nodes
-    if [[ "$line" =~ ^global_nodes:[[:space:]]*\[(.*)\ ]]; then
+    if [[ "$line" =~ ^global_nodes:[[:space:]]*\[(.*)\] ]]; then
       local items="${BASH_REMATCH[1]}"
       items="${items//\'/}"; items="${items//\"/}"
       IFS=',' read -ra ITEMS <<< "$items"
@@ -111,7 +111,7 @@ parse_and_download() {
         fi
       done
     # Check for global_pip_packages
-    elif [[ "$line" =~ ^global_pip_packages:[[:space:]]*\[(.*)\ ]]; then
+    elif [[ "$line" =~ ^global_pip_packages:[[:space:]]*\[(.*)\] ]]; then
       local items="${BASH_REMATCH[1]}"
       items="${items//\'/}"; items="${items//\"/}"
       IFS=',' read -ra ITEMS <<< "$items"
@@ -126,7 +126,7 @@ parse_and_download() {
       temp_in_workflow=true
     elif [[ "$temp_in_workflow" == true ]]; then
       # Check for nodes within workflow
-      if [[ "$line" =~ ^[[:space:]]+nodes:[[:space:]]*\[(.*)\ ]]; then
+      if [[ "$line" =~ ^[[:space:]]+nodes:[[:space:]]*\[(.*)\] ]]; then
         local items="${BASH_REMATCH[1]}"
         items="${items//\'/}"; items="${items//\"/}"
         IFS=',' read -ra ITEMS <<< "$items"
@@ -142,7 +142,7 @@ parse_and_download() {
           fi
         done
       # Check for pip_packages within workflow
-      elif [[ "$line" =~ ^[[:space:]]+pip_packages:[[:space:]]*\[(.*)\ ]]; then
+      elif [[ "$line" =~ ^[[:space:]]+pip_packages:[[:space:]]*\[(.*)\] ]]; then
         local items="${BASH_REMATCH[1]}"
         items="${items//\'/}"; items="${items//\"/}"
         IFS=',' read -ra ITEMS <<< "$items"
