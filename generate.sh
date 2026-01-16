@@ -178,7 +178,7 @@ parse_and_download() {
         IFS="$old_ifs"
         for url in "${URL_ARRAY[@]}"; do
           url="$(echo "$url" | xargs)" || true
-          [[ -n "$url" ]] && ((total_models++))
+          [[ -n "$url" ]] && ((++total_models)) || true
         done
       elif [[ ! "$line" =~ ^[[:space:]] ]]; then
         temp_in_workflow=false
@@ -259,7 +259,7 @@ parse_and_download() {
             filename="${url##*/}"
             dest_path="$BASE_DIR/$current_category/$filename"
             
-            ((current_model++))
+            ((++current_model)) || true
             download "$url" "$dest_path" "[${current_model}/${total_models}]"
           fi
         done
