@@ -36,13 +36,13 @@ echo "Starting Model Download and Setup"
 echo "============================================================"
 
 # Fix line endings for Linux (in case downloaded from Windows)
-sed -i 's/\r$//' create_video_ltx2_i2v.sh 2>/dev/null || true
+sed -i 's/\r$//' generate.sh 2>/dev/null || true
 
 # Make script executable
-chmod +x create_video_ltx2_i2v.sh
+chmod +x generate.sh
 
 # Execute the download and setup script
-bash create_video_ltx2_i2v.sh
+bash generate.sh
 
 echo ""
 echo "============================================================"
