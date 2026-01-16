@@ -103,7 +103,9 @@ parse_and_download() {
     if [[ "$line" =~ ^global_nodes:[[:space:]]*\[(.*)\] ]]; then
       local items="${BASH_REMATCH[1]}"
       items="${items//\'/}"; items="${items//\"/}"
+      local old_ifs="$IFS"
       IFS=',' read -ra ITEMS <<< "$items"
+      IFS="$old_ifs"
       for item in "${ITEMS[@]}"; do
         item="$(echo "$item" | xargs)"
         if [[ -n "$item" ]]; then
@@ -114,7 +116,9 @@ parse_and_download() {
     elif [[ "$line" =~ ^global_pip_packages:[[:space:]]*\[(.*)\] ]]; then
       local items="${BASH_REMATCH[1]}"
       items="${items//\'/}"; items="${items//\"/}"
+      local old_ifs="$IFS"
       IFS=',' read -ra ITEMS <<< "$items"
+      IFS="$old_ifs"
       for item in "${ITEMS[@]}"; do
         item="$(echo "$item" | xargs)"
         if [[ -n "$item" ]]; then
@@ -129,7 +133,9 @@ parse_and_download() {
       if [[ "$line" =~ ^[[:space:]]+nodes:[[:space:]]*\[(.*)\] ]]; then
         local items="${BASH_REMATCH[1]}"
         items="${items//\'/}"; items="${items//\"/}"
+        local old_ifs="$IFS"
         IFS=',' read -ra ITEMS <<< "$items"
+        IFS="$old_ifs"
         for item in "${ITEMS[@]}"; do
           item="$(echo "$item" | xargs)"
           if [[ -n "$item" ]]; then
@@ -147,7 +153,9 @@ parse_and_download() {
       elif [[ "$line" =~ ^[[:space:]]+pip_packages:[[:space:]]*\[(.*)\] ]]; then
         local items="${BASH_REMATCH[1]}"
         items="${items//\'/}"; items="${items//\"/}"
+        local old_ifs="$IFS"
         IFS=',' read -ra ITEMS <<< "$items"
+        IFS="$old_ifs"
         for item in "${ITEMS[@]}"; do
           item="$(echo "$item" | xargs)"
           if [[ -n "$item" ]]; then
@@ -165,7 +173,9 @@ parse_and_download() {
       elif [[ "$line" =~ ^[[:space:]]+([a-z_]+):[[:space:]]*\[(.*)\][[:space:]]*$ ]]; then
         local urls="${BASH_REMATCH[2]}"
         urls="${urls//\'/}"; urls="${urls//\"/}"
+        local old_ifs="$IFS"
         IFS=',' read -ra URL_ARRAY <<< "$urls"
+        IFS="$old_ifs"
         for url in "${URL_ARRAY[@]}"; do
           url="$(echo "$url" | xargs)"
           [[ -n "$url" ]] && ((total_models++))
@@ -236,7 +246,9 @@ parse_and_download() {
         urls="${urls//\'/}"
         urls="${urls//\"/}"
         
+        local old_ifs="$IFS"
         IFS=',' read -ra URL_ARRAY <<< "$urls"
+        IFS="$old_ifs"
         
         for url in "${URL_ARRAY[@]}"; do
           # Trim whitespace
