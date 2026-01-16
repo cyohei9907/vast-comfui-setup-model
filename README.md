@@ -21,12 +21,34 @@ This script downloads the following models:
 
 ## 🚀 Quick Start
 
-### For Linux (Vast.ai, RunPod, etc.)
+### For Vast.ai / Cloud GPU Platforms
+
+The script runs automatically when you set the provisioning URL in Vast.ai:
+
+```
+Provisioning Script URL:
+https://raw.githubusercontent.com/cyohei9907/vast-comfui-setup-model/refs/heads/main/main.sh
+```
+
+**查看安装日志：**
 
 ```bash
-# 1. Download and extract
-wget <your-release-url>/shell.tar
-tar -xf shell.tar
+# SSH 连接到容器后，查看实时日志
+tail -f /workspace/setup.log
+
+# 或查看完整日志
+cat /workspace/setup.log
+
+# 查看下载进度
+grep "DOWNLOADING" /workspace/setup.log | tail -n 20
+```
+
+### For Manual Installation (Linux)
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/cyohei9907/vast-comfui-setup-model.git
+cd vast-comfui-setup-model
 
 # 2. Fix line endings (important!)
 sed -i 's/\r$//' *.sh
@@ -41,7 +63,7 @@ chmod +x *.sh
 ### Alternative: One-line Installation
 
 ```bash
-tar -xf shell.tar && sed -i 's/\r$//' *.sh && chmod +x *.sh && ./main.sh
+curl -sSL https://raw.githubusercontent.com/cyohei9907/vast-comfui-setup-model/main/main.sh | bash
 ```
 
 ## 📁 Installation Paths
@@ -69,25 +91,43 @@ Workflow will be installed to:
 
 ## 🛠️ Troubleshooting
 
+### 查看安装日志
+
+所有日志都保存在 `/workspace/setup.log`：
+
+```bash
+# 实时查看安装进度
+tail -f /workspace/setup.log
+
+# 查看下载进度 [已下载/总数]
+grep "\[.*/.* \[DOWNLOADING\]" /workspace/setup.log
+
+# 检查错误
+grep "ERROR" /workspace/setup.log
+
+# 查看已下载的模型
+ls -lh /workspace/ComfyUI/models/*/*.safetensors
+```
+
 ### Line Ending Issues
 
 If you see errors like `invalid option name pipefail`:
 
 ```bash
 # Convert Windows line endings to Unix
-sed -i 's/\r$//' main.sh create_video_ltx2_i2v.sh
+cd /workspace/shell/vast-comfui-setup-model
+sed -i 's/\r$//' *.sh
+chmod +x *.sh
+bash main.sh
 ```
 
-Or use `dos2unix`:
+### 手动运行脚本
+
+如果自动provisioning没有执行：
 
 ```bash
-dos2unix *.sh
-```
-
-### Permission Denied
-
-```bash
-chmod +x main.sh create_video_ltx2_i2v.sh
+cd /workspace/shell/vast-comfui-setup-model
+bash main.sh
 ```
 
 ### Download Interrupted
@@ -95,8 +135,24 @@ chmod +x main.sh create_video_ltx2_i2v.sh
 The script uses curl with resume support. Simply run it again:
 
 ```bash
-./main.sh
+cd /workspace/shell/vast-comfui-setup-model
+bash generate.sh
 ```
+
+### 检查安装进度
+
+```bash
+# 查看正在运行的进程
+ps aux | grep -E "(main.sh|generate.sh|curl)"
+
+# 查看最新下载的文件（实时更新）
+watch -n 5 'ls -lht /workspace/ComfyUI/models/*/*.safetensors | head -n 10'
+
+# 检查磁盘空间
+df -h /workspace
+```
+
+更多详细的故障排查，请查看 [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
 
 ### Disk Space
 
