@@ -291,7 +291,7 @@ move_workflows() {
   # Count total workflows
   local total_workflows=0
   for wf in "$workflow_src_dir"/*.json; do
-    [[ -e "$wf" ]] && ((total_workflows++))
+    [[ -e "$wf" ]] && ((++total_workflows)) || true
   done
   
   echo "[INFO] Found $total_workflows workflow file(s)"
@@ -302,7 +302,7 @@ move_workflows() {
   
   for workflow_file in "$workflow_src_dir"/*.json; do
     [[ -e "$workflow_file" ]] || continue
-    ((current++))
+    ((++current)) || true
     
     local filename=$(basename "$workflow_file")
     local workflow_name="${filename%.json}"
@@ -320,10 +320,10 @@ move_workflows() {
     if [[ "$is_enabled" == true ]]; then
       echo "[${current}/${total_workflows}] [COPYING] $filename -> $dest"
       cp "$workflow_file" "$dest"
-      ((count++))
+      ((++count)) || true
     else
       echo "[${current}/${total_workflows}] [SKIPPING] $filename (commented or not in model.yaml)"
-      ((skipped++))
+      ((++skipped)) || true
     fi
   done
   
@@ -350,7 +350,7 @@ install_nodes() {
 
   local current_node=0
   for repo in "${global_nodes[@]}"; do
-    ((current_node++))
+    ((++current_node)) || true
     
     # Extract repo name from URL
     local dir_name="${repo##*/}"
@@ -402,7 +402,7 @@ install_pip_packages() {
 
   local current_package=0
   for package in "${global_pip_packages[@]}"; do
-    ((current_package++))
+    ((++current_package)) || true
     echo "[${current_package}/${#global_pip_packages[@]}] [INSTALL] $package"
     pip install --no-cache-dir "$package" || echo "[WARNING] Failed to install $package"
   done
