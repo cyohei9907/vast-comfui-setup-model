@@ -5,7 +5,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORKFLOW_DIR="$SCRIPT_DIR/workflow"
-OUTPUT_FILE="$SCRIPT_DIR/model.txt"
+OUTPUT_FILE="$SCRIPT_DIR/model.yaml"
 
 echo "Parsing workflow files in: $WORKFLOW_DIR"
 echo "Output file: $OUTPUT_FILE"

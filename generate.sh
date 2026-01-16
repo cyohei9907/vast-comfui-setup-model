@@ -4,7 +4,7 @@ set -euo pipefail
 # -------- config --------
 BASE_DIR="/workspace/ComfyUI/models"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-MODEL_FILE="$SCRIPT_DIR/model.txt"
+MODEL_FILE="$SCRIPT_DIR/model.yaml"
 
 # Use curl for robust download
 # -L follow redirects
@@ -58,14 +58,30 @@ parse_and_download() {
   
   local current_workflow=""
   local in_workflow=false
+  # Array to track enabled workflows
+  enabled_workflows=()
   
   while IFS= read -r line; do
-    # Skip empty lines and comments
-    [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+    # Skip empty lines
+    [[ -z "$line" ]] && continue
+    
+    # Check for commented workflow section (starts with # followed by workflow name:)
+    if [[ "$line" =~ ^#[[:space:]]*([a-zA-Z0-9_-]+):$ ]]; then
+      echo ""
+      echo "============================================================"
+      echo "SKIPPING commented workflow: ${BASH_REMATCH[1]}"
+      echo "============================================================"
+      in_workflow=false
+      continue
+    fi
+    
+    # Skip other comment lines
+    [[ "$line" =~ ^[[:space:]]*# ]] && continue
     
     # Check for workflow section (ends with :)
     if [[ "$line" =~ ^([a-zA-Z0-9_-]+):$ ]]; then
       current_workflow="${BASH_REMATCH[1]}"
+      enabled_workflows+=("$current_workflow")
       echo ""
       echo "============================================================"
       echo "Processing workflow: $current_workflow"
@@ -128,18 +144,35 @@ move_workflows() {
   fi
   
   local count=0
+  local skipped=0
+  
   for workflow_file in "$workflow_src_dir"/*.json; do
     [[ -e "$workflow_file" ]] || continue
     
     local filename=$(basename "$workflow_file")
+    local workflow_name="${filename%.json}"
     local dest="$workflow_dest_dir/$filename"
     
-    echo "[COPYING] $filename -> $dest"
-    cp "$workflow_file" "$dest"
-    ((count++))
+    # Check if this workflow is enabled in model.txt
+    local is_enabled=false
+    for enabled_wf in "${enabled_workflows[@]}"; do
+      if [[ "$enabled_wf" == "$workflow_name" ]]; then
+        is_enabled=true
+        break
+      fi
+    done
+    
+    if [[ "$is_enabled" == true ]]; then
+      echo "[COPYING] $filename -> $dest"
+      cp "$workflow_file" "$dest"
+      ((count++))
+    else
+      echo "[SKIPPING] $filename (commented or not in model.txt)"
+      ((skipped++))
+    fi
   done
   
-  echo "[OK] Installed $count workflow files"
+  echo "[OK] Installed $count workflow files, skipped $skipped"
 }
 
 # -------- Main execution --------

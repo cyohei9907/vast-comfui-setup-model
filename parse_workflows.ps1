@@ -1,7 +1,7 @@
 # PowerShell script to parse workflow JSON files and generate model.txt
 
 $WorkflowDir = Join-Path $PSScriptRoot "workflow"
-$OutputFile = Join-Path $PSScriptRoot "model.txt"
+$OutputFile = Join-Path $PSScriptRoot "model.yaml"
 
 Write-Host "Parsing workflow files in: $WorkflowDir"
 Write-Host "Output file: $OutputFile"
