@@ -1,4 +1,13 @@
 
+# # ComfyUI Model & Node Configuration
+# Uncomment workflows to enable them (add # before workflow_name:)
+# Set environment variables: HF_TOKEN, CIVITAI_TOKEN for authenticated downloads
+
+# Global nodes (will be installed for all enabled workflows)
+# Uncomment to enable:
+global_nodes: ['https://github.com/ltdrdata/ComfyUI-Manager', 'https://github.com/cubiq/ComfyUI_essentials']
+global_pip_packages: ['onnxruntime', 'opencv-python']
+
 # video_ltx2_depth_to_video:
 #   checkpoints: ['https://huggingface.co/Lightricks/LTX-2/resolve/main/ltx-2-19b-dev-fp8.safetensors', 'https://huggingface.co/Comfy-Org/ltx-2/resolve/main/split_files/text_encoders/gemma_3_12B_it_fp4_mixed.safetensors']
 #   diffusion_models: ['https://huggingface.co/Comfy-Org/lotus/resolve/main/lotus-depth-d-v1-1.safetensors']

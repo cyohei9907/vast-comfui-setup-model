@@ -3,6 +3,7 @@ set -euo pipefail
 
 # -------- config --------
 BASE_DIR="/workspace/ComfyUI/models"
+COMFYUI_DIR="/workspace/ComfyUI"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MODEL_FILE="$SCRIPT_DIR/model.yaml"
 
@@ -12,6 +13,15 @@ MODEL_FILE="$SCRIPT_DIR/model.yaml"
 # --retry retry on failure
 # --retry-all-errors: retry on transient errors
 CURL_OPTS=(-L -C - --retry 5 --retry-delay 2 --retry-all-errors)
+
+# Authentication tokens (can be set via environment variables)
+HF_TOKEN="${HF_TOKEN:-}"
+CIVITAI_TOKEN="${CIVITAI_TOKEN:-}"
+
+# Global arrays for tracking
+enabled_workflows=()
+global_nodes=()
+global_pip_packages=()
 
 download() {
   local url="$1"
@@ -37,7 +47,21 @@ download() {
   echo "DEST: $dest"
   echo "------------------------------------------------------------"
 
-  curl "${CURL_OPTS[@]}" -o "$dest" "$url"
+  # Add authentication header if needed
+  local auth_header=""
+  if [[ -n "$HF_TOKEN" && "$url" =~ huggingface\.co ]]; then
+    auth_header="Authorization: Bearer $HF_TOKEN"
+    echo "[AUTH] Using HuggingFace token"
+  elif [[ -n "$CIVITAI_TOKEN" && "$url" =~ civitai\.com ]]; then
+    auth_header="Authorization: Bearer $CIVITAI_TOKEN"
+    echo "[AUTH] Using Civitai token"
+  fi
+
+  if [[ -n "$auth_header" ]]; then
+    curl "${CURL_OPTS[@]}" -H "$auth_header" -o "$dest" "$url"
+  else
+    curl "${CURL_OPTS[@]}" -o "$dest" "$url"
+  fi
 
   if [[ ! -s "$dest" ]]; then
     echo "[ERROR] Download failed or file is empty: $dest" >&2
@@ -159,7 +183,102 @@ move_workflows() {
       if [[ "$enabled_wf" == "$workflow_name" ]]; then
         is_enabled=true
         break
+ 
+
+# -------- Install ComfyUI nodes --------
+install_nodes() {
+  if [[ ${#global_nodes[@]} -eq 0 ]]; then
+    echo ""
+    echo "============================================================"
+    echo "No custom nodes to install"
+    echo "============================================================"
+    return
+  fi
+
+  echo ""
+  echo "============================================================"
+  echo "Installing ComfyUI Custom Nodes"
+  echo "============================================================"
+
+  local custom_nodes_dir="$COMFYUI_DIR/custom_nodes"
+  mkdir -p "$custom_nodes_dir"
+
+  for repo in "${global_nodes[@]}"; do
+# Check for authentication tokens
+if [[ -n "$HF_TOKEN" ]]; then
+  echo "[INFO] HuggingFace token detected"
+fi
+if [[ -n "$CIVITAI_TOKEN" ]]; then
+  echo "[INFO] Civitai token detected"
+fi
+
+# Install PIP packages first
+parse_and_download
+install_pip_packages
+
+# Install custom nodes
+install_nodes
+
+# Download all models (already called in parse_and_download)
+# Models are downloaded during parse_and_download
+
+# Install workflow files
+move_workflows
+
+echo ""
+echo "============================================================"
+echo "[ALL DONE] Setup completed successfully!"
+echo "============================================================"
+echo "Models location: $BASE_DIR"
+echo "Workflows location: /workspace/ComfyUI/user/default/workflows"
+if [[ ${#global_nodes[@]} -gt 0 ]]; then
+  echo "Installed ${#global_nodes[@]} custom node(s)"
+fi
+if [[ ${#global_pip_packages[@]} -gt 0 ]]; then
+  echo "Installed ${#global_pip_packages[@]} PIP package(s)"
+fi
+        pip install --no-cache-dir -r "$requirements" || echo "[WARNING] Failed to install requirements for $dir_name"
       fi
+    else
+      echo ""
+      echo "[CLONE] Cloning node: $repo"
+      git clone "$repo" "$node_path" --recursive || {
+        echo "[ERROR] Failed to clone $repo" >&2
+        continue
+      }
+      
+      if [[ -f "$requirements" ]]; then
+        echo "[INSTALL] Installing requirements for $dir_name"
+        pip install --no-cache-dir -r "$requirements" || echo "[WARNING] Failed to install requirements for $dir_name"
+      fi
+    fi
+  done
+
+  echo "[OK] Node installation complete"
+}
+
+# -------- Install PIP packages --------
+install_pip_packages() {
+  if [[ ${#global_pip_packages[@]} -eq 0 ]]; then
+    echo ""
+    echo "============================================================"
+    echo "No additional PIP packages to install"
+    echo "============================================================"
+    return
+  fi
+
+  echo ""
+  echo "============================================================"
+  echo "Installing PIP Packages"
+  echo "============================================================"
+
+  for package in "${global_pip_packages[@]}"; do
+    echo "[INSTALL] $package"
+    pip install --no-cache-dir "$package" || echo "[WARNING] Failed to install $package"
+  done
+
+  echo "[OK] PIP package installation complete"
+}     fi
     done
     
     if [[ "$is_enabled" == true ]]; then
