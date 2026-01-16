@@ -107,7 +107,7 @@ parse_and_download() {
       IFS=',' read -ra ITEMS <<< "$items"
       IFS="$old_ifs"
       for item in "${ITEMS[@]}"; do
-        item="$(echo "$item" | xargs)"
+        item="$(echo "$item" | xargs)" || true
         if [[ -n "$item" ]]; then
           global_nodes+=("$item")
         fi
@@ -120,7 +120,7 @@ parse_and_download() {
       IFS=',' read -ra ITEMS <<< "$items"
       IFS="$old_ifs"
       for item in "${ITEMS[@]}"; do
-        item="$(echo "$item" | xargs)"
+        item="$(echo "$item" | xargs)" || true
         if [[ -n "$item" ]]; then
           global_pip_packages+=("$item")
         fi
@@ -137,7 +137,7 @@ parse_and_download() {
         IFS=',' read -ra ITEMS <<< "$items"
         IFS="$old_ifs"
         for item in "${ITEMS[@]}"; do
-          item="$(echo "$item" | xargs)"
+          item="$(echo "$item" | xargs)" || true
           if [[ -n "$item" ]]; then
             # Add to global_nodes if not already present
             local found=false
@@ -157,7 +157,7 @@ parse_and_download() {
         IFS=',' read -ra ITEMS <<< "$items"
         IFS="$old_ifs"
         for item in "${ITEMS[@]}"; do
-          item="$(echo "$item" | xargs)"
+          item="$(echo "$item" | xargs)" || true
           if [[ -n "$item" ]]; then
             # Add to global_pip_packages if not already present
             local found=false
@@ -177,7 +177,7 @@ parse_and_download() {
         IFS=',' read -ra URL_ARRAY <<< "$urls"
         IFS="$old_ifs"
         for url in "${URL_ARRAY[@]}"; do
-          url="$(echo "$url" | xargs)"
+          url="$(echo "$url" | xargs)" || true
           [[ -n "$url" ]] && ((total_models++))
         done
       elif [[ ! "$line" =~ ^[[:space:]] ]]; then
@@ -252,7 +252,7 @@ parse_and_download() {
         
         for url in "${URL_ARRAY[@]}"; do
           # Trim whitespace
-          url="$(echo "$url" | xargs)"
+          url="$(echo "$url" | xargs)" || true
           
           if [[ -n "$url" ]]; then
             # Extract filename from URL
