@@ -53,17 +53,54 @@ download() {
     echo "[DOWNLOADING]"
   fi
   echo "URL : $url"
+  
+  # Special handling for Civitai API downloads
+  if [[ "$url" =~ civitai\.com/api/download ]]; then
+    echo "[INFO] Civitai API detected - fetching real filename from Content-Disposition"
+    
+    # Get the real filename from Content-Disposition header
+    local auth_arg=""
+    if [[ -n "$CIVITAI_TOKEN" ]]; then
+      auth_arg="-H \"Authorization: Bearer $CIVITAI_TOKEN\""
+      echo "[AUTH] Using Civitai token"
+    fi
+    
+    # Download to temp directory and get real filename
+    local temp_dir="$(dirname "$dest")"
+    cd "$temp_dir" || exit 1
+    
+    # Use -J (remote-header-name) and -O (remote-name) to get filename from header
+    if [[ -n "$CIVITAI_TOKEN" ]]; then
+      curl "${CURL_OPTS[@]}" -J -O -H "Authorization: Bearer $CIVITAI_TOKEN" "$url"
+    else
+      curl "${CURL_OPTS[@]}" -J -O "$url"
+    fi
+    
+    # Find the downloaded file (most recent file in directory)
+    local downloaded_file
+    downloaded_file="$(ls -t "$temp_dir" | head -1)"
+    
+    if [[ -z "$downloaded_file" || ! -f "$temp_dir/$downloaded_file" ]]; then
+      echo "[ERROR] Failed to download from Civitai API" >&2
+      exit 1
+    fi
+    
+    echo "DEST: $temp_dir/$downloaded_file"
+    echo "------------------------------------------------------------"
+    echo "[OK] Downloaded: $(ls -lh "$temp_dir/$downloaded_file" | awk '{print $5}')"
+    cd - > /dev/null || exit 1
+    return 0
+  fi
+  
+  # Normal download for HuggingFace and direct URLs
   echo "DEST: $dest"
   echo "------------------------------------------------------------"
-
+  
   # Add authentication header if needed
   local auth_header=""
   if [[ -n "$HF_TOKEN" && "$url" =~ huggingface\.co ]]; then
     auth_header="Authorization: Bearer $HF_TOKEN"
     echo "[AUTH] Using HuggingFace token"
-  elif [[ -n "$CIVITAI_TOKEN" && "$url" =~ civitai\.com ]]; then
-    auth_header="Authorization: Bearer $CIVITAI_TOKEN"
-    echo "[AUTH] Using Civitai token"
   fi
 
   if [[ -n "$auth_header" ]]; then
