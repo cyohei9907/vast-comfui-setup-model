@@ -23,6 +23,27 @@ enabled_workflows=()
 global_nodes=()
 global_pip_packages=()
 
+# -------- Token validation functions --------
+validate_hf_token() {
+  [[ -z "$HF_TOKEN" ]] && return 1
+  local url="https://huggingface.co/api/whoami-v2"
+  local response
+  response=$(curl -o /dev/null -s -w "%{http_code}" -X GET "$url" \
+    -H "Authorization: Bearer $HF_TOKEN" \
+    -H "Content-Type: application/json")
+  [[ "$response" -eq 200 ]]
+}
+
+validate_civitai_token() {
+  [[ -z "$CIVITAI_TOKEN" ]] && return 1
+  local url="https://civitai.com/api/v1/models?hidden=1&limit=1"
+  local response
+  response=$(curl -o /dev/null -s -w "%{http_code}" -X GET "$url" \
+    -H "Authorization: Bearer $CIVITAI_TOKEN" \
+    -H "Content-Type: application/json")
+  [[ "$response" -eq 200 ]]
+}
+
 download() {
   local url="$1"
   local dest="$2"
@@ -452,12 +473,23 @@ echo "============================================================"
 echo "ComfyUI Model & Workflow Setup"
 echo "============================================================"
 
-# Check for authentication tokens
+# Validate authentication tokens
 if [[ -n "$HF_TOKEN" ]]; then
-  echo "[INFO] HuggingFace token detected"
+  if validate_hf_token; then
+    echo "[INFO] ✓ HuggingFace token validated successfully"
+  else
+    echo "[WARNING] ✗ HuggingFace token is invalid or expired"
+    HF_TOKEN=""  # Clear invalid token
+  fi
 fi
+
 if [[ -n "$CIVITAI_TOKEN" ]]; then
-  echo "[INFO] Civitai token detected"
+  if validate_civitai_token; then
+    echo "[INFO] ✓ Civitai token validated successfully"
+  else
+    echo "[WARNING] ✗ Civitai token is invalid or expired"
+    CIVITAI_TOKEN=""  # Clear invalid token
+  fi
 fi
 
 # Parse and download models (also extracts nodes and packages)
