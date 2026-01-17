@@ -40,12 +40,7 @@ video_wan2_2_14B_t2v:
 
 # Additional Civitai models (not tied to specific workflow)
 civitai_models:
-  checkpoints: [
-    'https://civitai.com/api/download/models/2544377?type=Model&format=SafeTensor&size=pruned&fp=fp16',
-    'https://civitai.com/api/download/models/2469412?type=Model&format=SafeTensor&size=pruned&fp=fp16',
-    'https://civitai.com/api/download/models/2255476?type=Model&format=SafeTensor&size=pruned&fp=fp16',
-    'https://civitai.com/api/download/models/2538295?type=Model&format=SafeTensor&size=full&fp=bf16',
-  ]
+  checkpoints: ['https://civitai.com/api/download/models/2544377?type=Model&format=SafeTensor&size=pruned&fp=fp16', 'https://civitai.com/api/download/models/2469412?type=Model&format=SafeTensor&size=pruned&fp=fp16', 'https://civitai.com/api/download/models/2255476?type=Model&format=SafeTensor&size=pruned&fp=fp16', 'https://civitai.com/api/download/models/2538295?type=Model&format=SafeTensor&size=full&fp=bf16']
   loras: []
   vae: []
   diffusion_models: []
