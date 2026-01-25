@@ -17,7 +17,8 @@ video_ltx2_depth_to_video:
   vae: ['https://huggingface.co/stabilityai/sd-vae-ft-mse-original/resolve/main/vae-ft-mse-840000-ema-pruned.safetensors']
 
 video_ltx2_i2v:
-  checkpoints: ['https://huggingface.co/Lightricks/LTX-2/resolve/main/ltx-2-19b-dev-fp8.safetensors', 'https://huggingface.co/Comfy-Org/ltx-2/resolve/main/split_files/text_encoders/gemma_3_12B_it.safetensors']
+  checkpoints: ['https://huggingface.co/Lightricks/LTX-2/resolve/main/ltx-2-19b-dev-fp8.safetensors']
+  text_encoders: ['https://huggingface.co/Comfy-Org/ltx-2/resolve/main/split_files/text_encoders/gemma_3_12B_it.safetensors']
   latent_upscale_models: ['https://huggingface.co/Lightricks/LTX-2/resolve/main/ltx-2-spatial-upscaler-x2-1.0.safetensors']
   loras: ['https://huggingface.co/Lightricks/LTX-2-19b-LoRA-Camera-Control-Dolly-Left/resolve/main/ltx-2-19b-lora-camera-control-dolly-left.safetensors', 'https://huggingface.co/Lightricks/LTX-2/resolve/main/ltx-2-19b-distilled-lora-384.safetensors']
 
@@ -39,10 +40,10 @@ video_wan2_2_14B_i2v_subgraphed:
 #   vae: ['https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/vae/wan_2.1_vae.safetensors']
 
 # Additional Civitai models (not tied to specific workflow)
-civitai_models:
-  checkpoints: ['https://civitai.com/api/download/models/2544377?type=Model&format=SafeTensor&size=pruned&fp=fp16', 'https://civitai.com/api/download/models/2469412?type=Model&format=SafeTensor&size=pruned&fp=fp16', 'https://civitai.com/api/download/models/2255476?type=Model&format=SafeTensor&size=pruned&fp=fp16', 'https://civitai.com/api/download/models/2538295?type=Model&format=SafeTensor&size=full&fp=bf16']
-  loras: []
-  vae: []
-  diffusion_models: []
-  text_encoders: []
+# civitai_models:
+#   checkpoints: ['https://civitai.com/api/download/models/2544377?type=Model&format=SafeTensor&size=pruned&fp=fp16', 'https://civitai.com/api/download/models/2469412?type=Model&format=SafeTensor&size=pruned&fp=fp16', 'https://civitai.com/api/download/models/2255476?type=Model&format=SafeTensor&size=pruned&fp=fp16', 'https://civitai.com/api/download/models/2538295?type=Model&format=SafeTensor&size=full&fp=bf16']
+#   loras: []
+#   vae: []
+#   diffusion_models: []
+#   text_encoders: []
 
