@@ -91,10 +91,11 @@ download() {
     cd "$temp_dir" || exit 1
     
     # Use -J (remote-header-name) and -O (remote-name) to get filename from header
+    # NOTE: Cannot use -C - (resume) with -J - curl limitation, so we use custom options
     if [[ -n "$CIVITAI_TOKEN" ]]; then
-      curl "${CURL_OPTS[@]}" -J -O -H "Authorization: Bearer $CIVITAI_TOKEN" "$url"
+      curl -L --retry 5 --retry-delay 2 --retry-all-errors -J -O -H "Authorization: Bearer $CIVITAI_TOKEN" "$url"
     else
-      curl "${CURL_OPTS[@]}" -J -O "$url"
+      curl -L --retry 5 --retry-delay 2 --retry-all-errors -J -O "$url"
     fi
     
     # Find the downloaded file (most recent file in directory)
